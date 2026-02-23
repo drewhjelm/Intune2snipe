@@ -7,6 +7,7 @@ import logging
 import argparse
 import requests
 from msal import ConfidentialClientApplication
+from azure.identity import CertificateCredential
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -49,11 +50,10 @@ def validate_and_init_config():
     global TENANT_ID, CLIENT_ID, CLIENT_SECRET, SNIPEIT_URL, SNIPEIT_API_TOKEN
     global AZURE_GROUP_IDS, session, headers_graph, headers_snipeit
     
-    # Required environment variables
+    # Required environment variables (except auth credentials which are validated separately)
     required_vars = {
         "AZURE_TENANT_ID": "Azure tenant ID",
         "AZURE_CLIENT_ID": "Azure client ID",
-        "AZURE_CLIENT_SECRET": "Azure client secret",
         "SNIPEIT_URL": "Snipe-IT API URL",
         "SNIPEIT_API_TOKEN": "Snipe-IT API token"
     }
@@ -71,10 +71,25 @@ def validate_and_init_config():
         logger.error("\nPlease set all required environment variables before running.")
         sys.exit(1)
     
+    # Validate authentication credentials: require either certificate OR secret
+    cert_pem = os.getenv("AZURE_CLIENT_CERT_PEM")
+    client_secret = os.getenv("AZURE_CLIENT_SECRET")
+    
+    # Check if cert PEM is valid (not empty and not a placeholder)
+    has_valid_cert = cert_pem and not cert_pem.startswith("your-")
+    # Check if secret is valid (not empty and not a placeholder)
+    has_valid_secret = client_secret and not client_secret.startswith("your-")
+    
+    if not has_valid_cert and not has_valid_secret:
+        logger.error("Authentication credentials missing:")
+        logger.error("  Either AZURE_CLIENT_CERT_PEM or AZURE_CLIENT_SECRET must be set")
+        logger.error("  (and not a placeholder like 'your-...')")
+        sys.exit(1)
+    
     # Read and validate configuration
     TENANT_ID = os.getenv("AZURE_TENANT_ID")
     CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
-    CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
+    CLIENT_SECRET = client_secret if has_valid_secret else None
     SNIPEIT_URL = os.getenv("SNIPEIT_URL")
     SNIPEIT_API_TOKEN = os.getenv("SNIPEIT_API_TOKEN")
     
@@ -105,31 +120,61 @@ def validate_and_init_config():
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     
-    # Acquire MSAL token
-    authority = f"https://login.microsoftonline.com/{TENANT_ID}"
-    auth_app = ConfidentialClientApplication(
-        client_id=CLIENT_ID,
-        client_credential=CLIENT_SECRET,
-        authority=authority
-    )
+    # Acquire access token - prefer certificate, fallback to secret
+    access_token = None
     
-    logger.info("Acquiring Microsoft Graph access token...")
-    token = auth_app.acquire_token_for_client(scopes=SCOPE)
+    if has_valid_cert:
+        logger.info("Attempting to acquire Microsoft Graph access token using certificate...")
+        try:
+            # Ensure certificate data is in bytes format
+            cert_data = cert_pem.encode('utf-8') if isinstance(cert_pem, str) else cert_pem
+            
+            credential = CertificateCredential(
+                tenant_id=TENANT_ID,
+                client_id=CLIENT_ID,
+                certificate_data=cert_data
+            )
+            
+            token_result = credential.get_token("https://graph.microsoft.com/.default")
+            access_token = token_result.token
+            logger.info("Successfully acquired Microsoft Graph access token using certificate")
+        except Exception as e:
+            logger.error(f"Certificate authentication failed: {e}")
+            
+            # If certificate auth failed but we have a secret, try to fall back
+            if has_valid_secret:
+                logger.warning("Falling back to client secret authentication...")
+            else:
+                logger.error("No client secret available for fallback. Exiting.")
+                sys.exit(1)
     
-    if "access_token" not in token:
-        error = token.get("error", "unknown_error")
-        error_desc = token.get("error_description", "No description provided")
-        correlation_id = token.get("correlation_id", "N/A")
-        logger.error(f"Failed to acquire Graph access token")
-        logger.error(f"Error: {error}")
-        logger.error(f"Description: {error_desc}")
-        logger.error(f"Correlation ID: {correlation_id}")
-        sys.exit(1)
-    
-    logger.info("Successfully acquired Microsoft Graph access token")
+    # If certificate auth didn't succeed and we have a secret, use MSAL
+    if not access_token and has_valid_secret:
+        logger.info("Acquiring Microsoft Graph access token using client secret...")
+        authority = f"https://login.microsoftonline.com/{TENANT_ID}"
+        auth_app = ConfidentialClientApplication(
+            client_id=CLIENT_ID,
+            client_credential=CLIENT_SECRET,
+            authority=authority
+        )
+        
+        token = auth_app.acquire_token_for_client(scopes=SCOPE)
+        
+        if "access_token" not in token:
+            error = token.get("error", "unknown_error")
+            error_desc = token.get("error_description", "No description provided")
+            correlation_id = token.get("correlation_id", "N/A")
+            logger.error(f"Failed to acquire Graph access token")
+            logger.error(f"Error: {error}")
+            logger.error(f"Description: {error_desc}")
+            logger.error(f"Correlation ID: {correlation_id}")
+            sys.exit(1)
+        
+        access_token = token['access_token']
+        logger.info("Successfully acquired Microsoft Graph access token using client secret")
     
     # Set up headers
-    headers_graph = {"Authorization": f"Bearer {token['access_token']}"}
+    headers_graph = {"Authorization": f"Bearer {access_token}"}
     headers_snipeit = {
         "Authorization": f"Bearer {SNIPEIT_API_TOKEN}",
         "Accept": "application/json",
