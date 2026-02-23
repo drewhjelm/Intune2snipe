@@ -11,7 +11,6 @@ WORKDIR /app
 RUN set -eux; \
     groupadd -r app; \
     useradd -r -g app -d /app -s /usr/sbin/nologin app; \
-    mkdir -p /app; \
     chown -R app:app /app
 
 COPY --chown=app:app requirements.txt /app/requirements.txt
