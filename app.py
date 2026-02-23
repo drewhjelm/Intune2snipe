@@ -135,10 +135,13 @@ def validate_and_init_config():
                 certificate_data=cert_data
             )
             
-            token_result = credential.get_token(SCOPE[0])
+            # Get token using the same scope as MSAL flow
+            # Note: get_token() expects scope strings, not a list
+            token_result = credential.get_token("https://graph.microsoft.com/.default")
             access_token = token_result.token
             logger.info("Successfully acquired Microsoft Graph access token using certificate")
-        except Exception as e:
+        except Exception:
+            # Catch any authentication failure for fallback behavior
             # Log error without exposing sensitive details
             logger.error("Certificate authentication failed")
             logger.error("Common causes: invalid PEM format, certificate expired, wrong tenant/client ID, or insufficient permissions")
