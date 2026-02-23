@@ -126,13 +126,8 @@ def validate_and_init_config():
     if has_valid_cert:
         logger.info("Attempting to acquire Microsoft Graph access token using certificate...")
         try:
-            # Ensure certificate data is in bytes format
-            if isinstance(cert_pem, str):
-                cert_data = cert_pem.encode('utf-8')
-            elif isinstance(cert_pem, bytes):
-                cert_data = cert_pem
-            else:
-                raise ValueError(f"Certificate PEM must be string or bytes, got {type(cert_pem)}")
+            # Environment variables are always strings, so encode to bytes
+            cert_data = cert_pem.encode('utf-8')
             
             credential = CertificateCredential(
                 tenant_id=TENANT_ID,
@@ -154,8 +149,8 @@ def validate_and_init_config():
                 logger.error("No client secret available for fallback. Exiting.")
                 sys.exit(1)
     
-    # If certificate auth didn't succeed and we have a secret, use MSAL
-    if not access_token and has_valid_secret:
+    # Use MSAL client secret if certificate didn't succeed
+    if access_token is None and has_valid_secret:
         logger.info("Acquiring Microsoft Graph access token using client secret...")
         authority = f"https://login.microsoftonline.com/{TENANT_ID}"
         auth_app = ConfidentialClientApplication(
