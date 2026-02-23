@@ -127,7 +127,12 @@ def validate_and_init_config():
         logger.info("Attempting to acquire Microsoft Graph access token using certificate...")
         try:
             # Ensure certificate data is in bytes format
-            cert_data = cert_pem.encode('utf-8') if isinstance(cert_pem, str) else cert_pem
+            if isinstance(cert_pem, str):
+                cert_data = cert_pem.encode('utf-8')
+            elif isinstance(cert_pem, bytes):
+                cert_data = cert_pem
+            else:
+                raise ValueError(f"Certificate PEM must be string or bytes, got {type(cert_pem)}")
             
             credential = CertificateCredential(
                 tenant_id=TENANT_ID,
@@ -140,6 +145,7 @@ def validate_and_init_config():
             logger.info("Successfully acquired Microsoft Graph access token using certificate")
         except Exception as e:
             logger.error(f"Certificate authentication failed: {e}")
+            logger.error("Common causes: invalid PEM format, certificate expired, wrong tenant/client ID, or insufficient permissions")
             
             # If certificate auth failed but we have a secret, try to fall back
             if has_valid_secret:
