@@ -13,6 +13,8 @@ from urllib3.util.retry import Retry
 # ─── CONSTANTS ──────────────────────────────────────────────────────────────────
 # HTTP timeout: (connect timeout, read timeout) in seconds
 DEFAULT_TIMEOUT = (3.05, 30)
+# Maximum length of response body to include in error logs (to prevent log spam)
+MAX_RESPONSE_LOG_LENGTH = 200
 SCOPE = ["https://graph.microsoft.com/.default"]
 # ────────────────────────────────────────────────────────────────────────────────
 
@@ -97,7 +99,7 @@ def validate_and_init_config():
         total=3,
         backoff_factor=1,
         status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
+        allowed_methods=["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"]
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
@@ -186,7 +188,7 @@ def get_or_create_category(name):
             resp_data = c.json()
             if resp_data.get("payload"):
                 return resp_data["payload"]["id"]
-        logger.warning(f"Could not create category '{name}': status={c.status_code}, response={c.text[:200]}")
+        logger.warning(f"Could not create category '{name}': status={c.status_code}, response={c.text[:MAX_RESPONSE_LOG_LENGTH]}")
     except requests.exceptions.Timeout:
         logger.error(f"Timeout creating category '{name}'")
     except requests.exceptions.RequestException as e:
@@ -234,7 +236,7 @@ def get_or_create_manufacturer(name):
             resp_data = c.json()
             if resp_data.get("payload"):
                 return resp_data["payload"]["id"]
-        logger.warning(f"Could not create manufacturer '{name}': status={c.status_code}, response={c.text[:200]}")
+        logger.warning(f"Could not create manufacturer '{name}': status={c.status_code}, response={c.text[:MAX_RESPONSE_LOG_LENGTH]}")
     except requests.exceptions.Timeout:
         logger.error(f"Timeout creating manufacturer '{name}'")
     except requests.exceptions.RequestException as e:
@@ -288,7 +290,7 @@ def get_or_create_model(model_number, manufacturer_id, category_id):
             resp_data = c.json()
             if resp_data.get("payload"):
                 return resp_data["payload"]["id"]
-        logger.warning(f"Could not create model '{model_number}': status={c.status_code}, response={c.text[:200]}")
+        logger.warning(f"Could not create model '{model_number}': status={c.status_code}, response={c.text[:MAX_RESPONSE_LOG_LENGTH]}")
     except requests.exceptions.Timeout:
         logger.error(f"Timeout creating model '{model_number}'")
     except requests.exceptions.RequestException as e:
@@ -496,11 +498,11 @@ def send_to_snipeit(device, category_id, status_id, dry_run=False):
         logger.error(f"Error creating asset for '{device.get('deviceName')}': {e}")
         return
     except ValueError:
-        logger.error(f"Invalid JSON response when creating asset for '{device.get('deviceName')}': status={r.status_code}, response={r.text[:200]}")
+        logger.error(f"Invalid JSON response when creating asset for '{device.get('deviceName')}': status={r.status_code}, response={r.text[:MAX_RESPONSE_LOG_LENGTH]}")
         return
     
     if r.status_code not in (200, 201) or resp.get("status") != "success":
-        logger.error(f"Failed to create '{device.get('deviceName')}': status={r.status_code}, response={r.text[:200]}")
+        logger.error(f"Failed to create '{device.get('deviceName')}': status={r.status_code}, response={r.text[:MAX_RESPONSE_LOG_LENGTH]}")
         return
 
     asset_id = resp["payload"]["id"]
@@ -518,7 +520,7 @@ def send_to_snipeit(device, category_id, status_id, dry_run=False):
             if co.status_code in (200, 201) and co_resp.get("status") == "success":
                 logger.info(f"Checked out asset {asset_id} to user_id {snipe_user_id}")
             else:
-                logger.error(f"Checkout failed for asset {asset_id}: status={co.status_code}, response={co.text[:200]}")
+                logger.error(f"Checkout failed for asset {asset_id}: status={co.status_code}, response={co.text[:MAX_RESPONSE_LOG_LENGTH]}")
         except requests.exceptions.Timeout:
             logger.error(f"Timeout checking out asset {asset_id}")
         except requests.exceptions.RequestException as e:
