@@ -135,11 +135,12 @@ def validate_and_init_config():
                 certificate_data=cert_data
             )
             
-            token_result = credential.get_token("https://graph.microsoft.com/.default")
+            token_result = credential.get_token(SCOPE[0])
             access_token = token_result.token
             logger.info("Successfully acquired Microsoft Graph access token using certificate")
         except Exception as e:
-            logger.error(f"Certificate authentication failed: {e}")
+            # Log error without exposing sensitive details
+            logger.error("Certificate authentication failed")
             logger.error("Common causes: invalid PEM format, certificate expired, wrong tenant/client ID, or insufficient permissions")
             
             # If certificate auth failed but we have a secret, try to fall back
