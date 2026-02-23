@@ -1,20 +1,28 @@
-FROM python:3.11-slim
+FROM dhi.io/python:3.11-debian13
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
 
 WORKDIR /app
 
-# Copy requirements first for better layer caching
-COPY requirements.txt .
+RUN set -eux; \
+    groupadd -r app; \
+    useradd -r -g app -d /app -s /usr/sbin/nologin app; \
+    chown -R app:app /app
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=app:app requirements.txt /app/requirements.txt
 
-# Copy the application code
-COPY app.py .
+RUN set -eux; \
+    pip install --no-cache-dir --upgrade pip; \
+    pip install --no-cache-dir -r /app/requirements.txt
 
-# Make app.py executable
-RUN chmod +x app.py
+COPY --chown=app:app app.py /app/app.py
 
-# Run the application
-ENTRYPOINT ["python3", "app.py"]
+USER app:app
+
+ENTRYPOINT ["python3", "/app/app.py"]
 CMD []
 
