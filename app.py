@@ -72,7 +72,7 @@ def validate_and_init_config():
         sys.exit(1)
     
     # Validate authentication credentials: require either certificate OR secret
-    cert_pem = os.getenv("AZURE_CLIENT_CERT_PEM")
+    cert_pem = os.getenv("AZURE_CLIENT_PRIVATE_KEY")
     client_secret = os.getenv("AZURE_CLIENT_SECRET")
     
     # Check if cert PEM is valid (not empty and not a placeholder)
@@ -82,7 +82,7 @@ def validate_and_init_config():
     
     if not has_valid_cert and not has_valid_secret:
         logger.error("Authentication credentials missing:")
-        logger.error("  Either AZURE_CLIENT_CERT_PEM or AZURE_CLIENT_SECRET must be set")
+        logger.error("  Either AZURE_CLIENT_PRIVATE_KEY or AZURE_CLIENT_SECRET must be set")
         logger.error("  (and not a placeholder like 'your-...')")
         sys.exit(1)
     
