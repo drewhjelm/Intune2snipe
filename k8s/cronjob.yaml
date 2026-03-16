@@ -8,7 +8,13 @@ type: Opaque
 stringData:
   AZURE_TENANT_ID: "your-tenant-id"
   AZURE_CLIENT_ID: "your-client-id"
-  AZURE_CLIENT_SECRET: "your-client-secret"
+  # Combined certificate and private key in PEM format (including BEGIN/END markers)
+  # Alternatively, use AZURE_CERTIFICATE_PEM and AZURE_PRIVATE_KEY_PEM separately
+  # Or use a file mount or external secret manager
+  AZURE_COMBINED_CERT_KEY: |
+    -----BEGIN PRIVATE KEY-----
+    your-private-key-here
+    -----END PRIVATE KEY-----
   SNIPEIT_URL: "https://your-snipeit-url/api/v1"
   SNIPEIT_API_TOKEN: "your-snipeit-api-token"
   SNIPEIT_DEFAULT_STATUS: "Ready to Deploy"
@@ -39,6 +45,13 @@ spec:
             # Update with your container registry and image
             image: ghcr.io/your-org/your-repo:latest
             imagePullPolicy: Always
+            securityContext:
+              runAsNonRoot: true
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             envFrom:
             - secretRef:
                 name: intune2snipe-secrets

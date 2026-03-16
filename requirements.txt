@@ -1,5 +1,15 @@
-msal>=1.24.0
-requests>=2.31.0
-urllib3>=2.0.0
-azure-identity>=1.12.0
+msal>=1.24.0,<2.0.0
+requests>=2.31.0,<3.0.0
+urllib3>=2.0.0,<3.0.0
+azure-identity>=1.12.0,<2.0.0
+python-dotenv>=1.0.0,<2.0.0
+
+# Optional: For AWS Secrets Manager support
+# boto3>=1.28.0,<2.0.0
+
+# Optional: For HashiCorp Vault support
+# hvac>=1.2.0,<3.0.0
+
+# Optional: For Azure Key Vault support
+# azure-keyvault-secrets>=4.7.0,<5.0.0
 
