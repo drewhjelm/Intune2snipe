@@ -1,0 +1,24 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Intune2Snipe Gitleaks Config"
+
+# Extend the default ruleset rather than replacing it
+[extend]
+useDefault = true
+
+# Suppress false positives from placeholder values used in .env.example and README.md.
+# Stopwords are matched against the secret value — if any stopword is present the
+# finding is suppressed, so real secrets that happen to share the PEM markers will
+# still be caught as long as they don't contain these exact placeholder strings.
+[allowlist]
+description = "Placeholder values used in example and documentation files"
+stopwords = [
+    "your-private-key-content-here",
+    "your-certificate-content-here",
+    # Truncated example key/cert fragments used in .env.example
+    "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC",
+    "MIIDXTCCAkWgAwIBAgIJAKJ",
+    # Placeholder domain present in the README JSON example block
+    "your-snipeit.example.com",
+]
