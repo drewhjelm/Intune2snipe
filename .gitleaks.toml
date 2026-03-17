@@ -1,0 +1,13 @@
+# Gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Intune2Snipe Gitleaks Config"
+
+[allowlist]
+description = "Allowlist for documentation and example files containing placeholder values"
+paths = [
+    # Example/template files — contain placeholder values like "your-private-key-content-here"
+    '''^\.env\.example$''',
+    '''^README\.md$''',
+    '''^CERTIFICATE_CONFIG\.md$''',
+]
